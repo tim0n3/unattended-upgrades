@@ -15,7 +15,7 @@ To install and use this script on a server manually or through automation (cron/
 
 ### 1. Download and Install the Script
 ```sh
-sudo curl -o /usr/local/bin/system-update.sh https://raw.githubusercontent.com/yourrepo/system-update/main/system-update.sh
+sudo curl -o /usr/local/bin/system-update.sh https://raw.githubusercontent.com/tim0n3/unattended-upgrades/refs/heads/main/system-update.sh
 sudo chmod +x /usr/local/bin/system-update.sh
 ```
 
