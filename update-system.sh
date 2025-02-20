@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LOG_FILE="/var/log/patching.log        "
+LOG_FILE="/var/log/patching.log"
 MAJOR_PACKAGES=(
         "python3"
         "systemd"
