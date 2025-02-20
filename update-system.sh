@@ -14,6 +14,8 @@ MAJOR_PACKAGES=(
         "mysql-server"
         "elasticsearch"
         "galera"
+        "salt-common"
+        "salt-minion"
 )
 
 # Detect installed PHP packages and add them to the Major Pkg array
