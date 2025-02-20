@@ -8,15 +8,21 @@ MAJOR_PACKAGES=(
         "update-manager-core"
         "apache2"
         "nginx"
-        "mariadb"
+        "nginx-common"
+        "mariadb-server"
+        "mariadb-server-core"
         "mysql-server"
         "elasticsearch"
         "galera"
 )
 
 # Detect installed PHP packages and add them to the Major Pkg array
-PHP_PACKAGES=($(apt list --installed 2>/dev/null | grep -E "^php[0-9]+\." | awk -F/ '{print $1}'))
-MAJOR_PACKAGES+=(${PHP_PACKAGES[@]})
+PHP_PACKAGES=(
+        $(apt list --installed 2>/dev/null | grep -E "^php[0-9]+\." | awk -F/ '{print $1}')
+)
+MAJOR_PACKAGES+=(
+        ${PHP_PACKAGES[@]}
+)
 
 log() {
         echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
