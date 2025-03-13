@@ -1,0 +1,136 @@
+---
+- name: System Patching and Upgrade
+  hosts: all
+  become: yes
+  gather_facts: yes
+  tasks:
+
+    - name: Ensure log file exists
+      ansible.builtin.file:
+        path: /var/log/patching.log
+        state: touch
+        mode: '0644'
+
+    - name: Log start of system update process
+      ansible.builtin.lineinfile:
+        path: /var/log/patching.log
+        line: "[{{ ansible_date_time.iso8601 }}] Starting system update process"
+        create: yes
+        insertafter: EOF
+
+    - name: Update package lists
+      ansible.builtin.apt:
+        update_cache: yes
+      register: update_result
+      ignore_errors: yes
+
+    - name: Log package list update result
+      ansible.builtin.lineinfile:
+        path: /var/log/patching.log
+        line: "[{{ ansible_date_time.iso8601 }}] Package list update {{ 'successful' if update_result.changed else 'failed' }}"
+        insertafter: EOF
+
+    - name: Get list of upgradable packages
+      ansible.builtin.shell: |
+        apt list --upgradable 2>/dev/null | awk -F/ 'NR>1 {print $1}'
+      register: upgradable_packages
+      changed_when: false
+
+    - name: Detect installed PHP packages
+      ansible.builtin.shell: |
+        apt list --installed 2>/dev/null | grep -E "^php[0-9]+\." | awk -F/ '{print $1}'
+      register: installed_php_packages
+      changed_when: false
+
+    - name: Define major packages list
+      ansible.builtin.set_fact:
+        major_packages:
+          - python3
+          - python3.8
+          - systemd
+          - dpkg
+          - update-manager-core
+          - apache2
+          - nginx
+          - nginx-core
+          - nginx-common
+          - php8.3-cli
+          - php8.3-common
+          - php8.3-mysql
+          - php8.3-opcache
+          - php8.3-readline
+          - mariadb-server
+          - mariadb-server-core
+          - mysql-server
+          - elasticsearch
+          - galera
+          - salt-common
+          - salt-minion
+          - "{{ installed_php_packages.stdout_lines | default([]) }}"
+
+    - name: Identify major packages for upgrade
+      ansible.builtin.set_fact:
+        major_packages_to_upgrade: "{{ major_packages | intersect(upgradable_packages.stdout_lines) }}"
+
+    - name: Log major package upgrades
+      ansible.builtin.lineinfile:
+        path: /var/log/patching.log
+        line: "[{{ ansible_date_time.iso8601 }}] Major packages to upgrade: {{ major_packages_to_upgrade | join(', ') }}"
+        insertafter: EOF
+
+    - name: Upgrade major packages
+      ansible.builtin.apt:
+        name: "{{ major_packages_to_upgrade }}"
+        state: latest
+      when: major_packages_to_upgrade | length > 0
+
+    - name: Identify remaining packages for upgrade
+      ansible.builtin.set_fact:
+        remaining_packages_to_upgrade: "{{ upgradable_packages.stdout_lines | difference(major_packages_to_upgrade) }}"
+
+    - name: Log remaining package upgrades
+      ansible.builtin.lineinfile:
+        path: /var/log/patching.log
+        line: "[{{ ansible_date_time.iso8601 }}] Remaining packages to upgrade: {{ remaining_packages_to_upgrade | join(', ') }}"
+        insertafter: EOF
+
+    - name: Upgrade remaining packages
+      ansible.builtin.apt:
+        name: "{{ remaining_packages_to_upgrade }}"
+        state: latest
+      when: remaining_packages_to_upgrade | length > 0
+
+    - name: Check if a reboot is required
+      ansible.builtin.stat:
+        path: /var/run/reboot-required
+      register: reboot_required
+
+    - name: Log reboot requirement
+      ansible.builtin.lineinfile:
+        path: /var/log/patching.log
+        line: "[{{ ansible_date_time.iso8601 }}] Reboot required: {{ 'Yes' if reboot_required.stat.exists else 'No' }}"
+        insertafter: EOF
+
+    - name: Reboot system if required
+      ansible.builtin.reboot:
+        msg: "Rebooting after patching..."
+      when: reboot_required.stat.exists
+
+    - name: Remove unused kernel and packages
+      ansible.builtin.apt:
+        autoremove: yes
+      register: autoremove_result
+
+    - name: Log autoremove status
+      ansible.builtin.lineinfile:
+        path: /var/log/patching.log
+        line: "[{{ ansible_date_time.iso8601 }}] Unused packages removed"
+        insertafter: EOF
+      when: autoremove_result.changed
+
+    - name: Log completion of patching process
+      ansible.builtin.lineinfile:
+        path: /var/log/patching.log
+        line: "[{{ ansible_date_time.iso8601 }}] Patching process completed"
+        insertafter: EOF
+
